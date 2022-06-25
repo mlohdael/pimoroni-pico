@@ -29,6 +29,13 @@ namespace pimoroni {
               scl = I2C_DEFAULT_SCL;
               interrupt = I2C_DEFAULT_INT;
               break;
+            case PLASMA_2040:
+            case INTERSTATE_75:
+            case SERVO_2040:
+              sda = I2C_HEADER_SDA;
+              scl = I2C_HEADER_SCL;
+              interrupt = I2C_HEADER_INT;
+              break;
           }
           init();
         }
@@ -55,7 +62,7 @@ namespace pimoroni {
         int16_t reg_read_int16(uint8_t address, uint8_t reg);
         uint32_t reg_read_uint32(uint8_t address, uint8_t reg);
 
-        int write_bytes(uint8_t address, uint8_t reg, uint8_t *buf, int len);
+        int write_bytes(uint8_t address, uint8_t reg, const uint8_t *buf, int len);
         int read_bytes(uint8_t address, uint8_t reg, uint8_t *buf, int len);
         uint8_t get_bits(uint8_t address, uint8_t reg, uint8_t shift, uint8_t mask=0b1);
         void set_bits(uint8_t address, uint8_t reg, uint8_t shift, uint8_t mask=0b1);

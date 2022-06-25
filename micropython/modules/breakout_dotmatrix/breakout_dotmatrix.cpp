@@ -1,11 +1,7 @@
 #include "libraries/breakout_dotmatrix/breakout_dotmatrix.hpp"
+#include "micropython/modules/util.hpp"
 #include <cstdio>
 
-#define MP_OBJ_TO_PTR2(o, t) ((t *)(uintptr_t)(o))
-
-// SDA/SCL on even/odd pins, I2C0/I2C1 on even/odd pairs of pins.
-#define IS_VALID_SCL(i2c, pin) (((pin) & 1) == 1 && (((pin) & 2) >> 1) == (i2c))
-#define IS_VALID_SDA(i2c, pin) (((pin) & 1) == 0 && (((pin) & 2) >> 1) == (i2c))
 
 
 using namespace pimoroni;
@@ -14,41 +10,13 @@ extern "C" {
 #include "breakout_dotmatrix.h"
 #include "pimoroni_i2c.h"
 
-/***** I2C Struct *****/
-typedef struct _PimoroniI2C_obj_t {
-    mp_obj_base_t base;
-    I2C *i2c;
-} _PimoroniI2C_obj_t;
-
 /***** Variables Struct *****/
 typedef struct _breakout_dotmatrix_BreakoutDotMatrix_obj_t {
     mp_obj_base_t base;
     BreakoutDotMatrix *breakout;
+    _PimoroniI2C_obj_t *i2c;
 } breakout_dotmatrix_BreakoutDotMatrix_obj_t;
 
-/***** Print *****/
-void BreakoutDotMatrix_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind) {
-    (void)kind; //Unused input parameter
-    breakout_dotmatrix_BreakoutDotMatrix_obj_t *self = MP_OBJ_TO_PTR2(self_in, breakout_dotmatrix_BreakoutDotMatrix_obj_t);
-    BreakoutDotMatrix* breakout = self->breakout;
-    mp_print_str(print, "BreakoutDotMatrix(");
-
-    mp_print_str(print, "i2c = ");
-    mp_obj_print_helper(print, mp_obj_new_int((breakout->get_i2c() == i2c0) ? 0 : 1), PRINT_REPR);
-
-    mp_print_str(print, ", address = 0x");
-    char buf[3];
-    sprintf(buf, "%02X", breakout->get_address());
-    mp_print_str(print, buf);
-
-    mp_print_str(print, ", sda = ");
-    mp_obj_print_helper(print, mp_obj_new_int(breakout->get_sda()), PRINT_REPR);
-
-    mp_print_str(print, ", scl = ");
-    mp_obj_print_helper(print, mp_obj_new_int(breakout->get_scl()), PRINT_REPR);
-
-    mp_print_str(print, ")");
-}
 
 /***** Constructor *****/
 mp_obj_t BreakoutDotMatrix_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
@@ -64,17 +32,12 @@ mp_obj_t BreakoutDotMatrix_make_new(const mp_obj_type_t *type, size_t n_args, si
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
-    if(!MP_OBJ_IS_TYPE(args[ARG_i2c].u_obj, &PimoroniI2C_type)) {
-        mp_raise_ValueError(MP_ERROR_TEXT("BreakoutDotMatrix: Bad i2C object"));
-        return mp_const_none;
-    }
-
-    _PimoroniI2C_obj_t *i2c = (_PimoroniI2C_obj_t *)MP_OBJ_TO_PTR(args[ARG_i2c].u_obj);
-
     self = m_new_obj(breakout_dotmatrix_BreakoutDotMatrix_obj_t);
     self->base.type = &breakout_dotmatrix_BreakoutDotMatrix_type;
-    
-    self->breakout = new BreakoutDotMatrix(i2c->i2c, args[ARG_address].u_int);
+
+    self->i2c = PimoroniI2C_from_machine_i2c_or_native(args[ARG_i2c].u_obj);
+
+    self->breakout = m_new_class(BreakoutDotMatrix, (pimoroni::I2C *)(self->i2c->i2c), args[ARG_address].u_int);
 
     if(!self->breakout->init()) {
         mp_raise_msg(&mp_type_RuntimeError, "DotMatrix breakout not found when initialising");

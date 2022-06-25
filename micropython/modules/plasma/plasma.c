@@ -9,13 +9,15 @@ MP_DEFINE_CONST_FUN_OBJ_KW(PlasmaAPA102_set_brightness_obj, 2, PlasmaAPA102_set_
 MP_DEFINE_CONST_FUN_OBJ_KW(PlasmaAPA102_start_obj, 1, PlasmaAPA102_start);
 MP_DEFINE_CONST_FUN_OBJ_KW(PlasmaAPA102_get_obj, 2, PlasmaAPA102_get);
 MP_DEFINE_CONST_FUN_OBJ_1(PlasmaAPA102_clear_obj, PlasmaAPA102_clear);
+MP_DEFINE_CONST_FUN_OBJ_1(PlasmaAPA102_update_obj, PlasmaAPA102_update);
 
 MP_DEFINE_CONST_FUN_OBJ_1(PlasmaWS2812___del___obj, PlasmaWS2812___del__);
 MP_DEFINE_CONST_FUN_OBJ_KW(PlasmaWS2812_set_rgb_obj, 5, PlasmaWS2812_set_rgb);
 MP_DEFINE_CONST_FUN_OBJ_KW(PlasmaWS2812_set_hsv_obj, 3, PlasmaWS2812_set_hsv);
 MP_DEFINE_CONST_FUN_OBJ_KW(PlasmaWS2812_start_obj, 1, PlasmaWS2812_start);
-MP_DEFINE_CONST_FUN_OBJ_KW(PlasmaWS2812_get_obj, 2, PlasmaAPA102_get);
+MP_DEFINE_CONST_FUN_OBJ_KW(PlasmaWS2812_get_obj, 2, PlasmaWS2812_get);
 MP_DEFINE_CONST_FUN_OBJ_1(PlasmaWS2812_clear_obj, PlasmaWS2812_clear);
+MP_DEFINE_CONST_FUN_OBJ_1(PlasmaWS2812_update_obj, PlasmaWS2812_update);
 
 /***** Binding of Methods *****/
 STATIC const mp_rom_map_elem_t PlasmaAPA102_locals_dict_table[] = {
@@ -26,6 +28,7 @@ STATIC const mp_rom_map_elem_t PlasmaAPA102_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_start), MP_ROM_PTR(&PlasmaAPA102_start_obj) },
     { MP_ROM_QSTR(MP_QSTR_get), MP_ROM_PTR(&PlasmaAPA102_get_obj) },
     { MP_ROM_QSTR(MP_QSTR_clear), MP_ROM_PTR(&PlasmaAPA102_clear_obj) },
+    { MP_ROM_QSTR(MP_QSTR_update), MP_ROM_PTR(&PlasmaAPA102_update_obj) },
 };
 STATIC const mp_rom_map_elem_t PlasmaWS2812_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&PlasmaWS2812___del___obj) },
@@ -34,6 +37,7 @@ STATIC const mp_rom_map_elem_t PlasmaWS2812_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_start), MP_ROM_PTR(&PlasmaWS2812_start_obj) },
     { MP_ROM_QSTR(MP_QSTR_get), MP_ROM_PTR(&PlasmaWS2812_get_obj) },
     { MP_ROM_QSTR(MP_QSTR_clear), MP_ROM_PTR(&PlasmaWS2812_clear_obj) },
+    { MP_ROM_QSTR(MP_QSTR_update), MP_ROM_PTR(&PlasmaWS2812_update_obj) },
 };
 
 STATIC MP_DEFINE_CONST_DICT(PlasmaAPA102_locals_dict, PlasmaAPA102_locals_dict_table);
@@ -107,4 +111,8 @@ const mp_obj_module_t plasma_user_cmodule = {
     .base = { &mp_type_module },
     .globals = (mp_obj_dict_t*)&mp_module_plasma_globals,
 };
+#if MICROPY_VERSION <= 70144
 MP_REGISTER_MODULE(MP_QSTR_plasma, plasma_user_cmodule, MODULE_PLASMA_ENABLED);
+#else
+MP_REGISTER_MODULE(MP_QSTR_plasma, plasma_user_cmodule);
+#endif

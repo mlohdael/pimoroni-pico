@@ -1,12 +1,7 @@
 #include "drivers/plasma/ws2812.hpp"
 #include "drivers/plasma/apa102.hpp"
+#include "micropython/modules/util.hpp"
 #include <cstdio>
-
-#define MP_OBJ_TO_PTR2(o, t) ((t *)(uintptr_t)(o))
-
-// SDA/SCL on even/odd pins, I2C0/I2C1 on even/odd pairs of pins.
-#define IS_VALID_SCL(i2c, pin) (((pin) & 1) == 1 && (((pin) & 2) >> 1) == (i2c))
-#define IS_VALID_SDA(i2c, pin) (((pin) & 1) == 0 && (((pin) & 2) >> 1) == (i2c))
 
 
 using namespace plasma;
@@ -47,7 +42,7 @@ void PlasmaWS2812_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind
 /***** Destructor ******/
 mp_obj_t PlasmaWS2812___del__(mp_obj_t self_in) {
     _PlasmaWS2812_obj_t *self = MP_OBJ_TO_PTR2(self_in, _PlasmaWS2812_obj_t);
-    delete self->ws2812;
+    m_del_class(WS2812, self->ws2812);
     return mp_const_none;
 }
 
@@ -103,7 +98,7 @@ mp_obj_t PlasmaWS2812_make_new(const mp_obj_type_t *type, size_t n_args, size_t 
     self->base.type = &PlasmaWS2812_type;
     self->buf = buffer;
 
-    self->ws2812 = new WS2812(num_leds, pio, sm, dat, freq, rgbw, color_order, (WS2812::RGB *)buffer);
+    self->ws2812 = m_new_class(WS2812, num_leds, pio, sm, dat, freq, rgbw, color_order, (WS2812::RGB *)buffer);
 
     return MP_OBJ_FROM_PTR(self);
 }
@@ -111,6 +106,12 @@ mp_obj_t PlasmaWS2812_make_new(const mp_obj_type_t *type, size_t n_args, size_t 
 mp_obj_t PlasmaWS2812_clear(mp_obj_t self_in) {
     _PlasmaWS2812_obj_t *self = MP_OBJ_TO_PTR2(self_in, _PlasmaWS2812_obj_t);
     self->ws2812->clear();
+    return mp_const_none;
+}
+
+mp_obj_t PlasmaWS2812_update(mp_obj_t self_in) {
+    _PlasmaWS2812_obj_t *self = MP_OBJ_TO_PTR2(self_in, _PlasmaWS2812_obj_t);
+    self->ws2812->update(true);
     return mp_const_none;
 }
 
@@ -133,13 +134,14 @@ mp_obj_t PlasmaWS2812_start(size_t n_args, const mp_obj_t *pos_args, mp_map_t *k
 
 
 mp_obj_t PlasmaWS2812_set_rgb(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
-    enum { ARG_self, ARG_index, ARG_r, ARG_g, ARG_b };
+    enum { ARG_self, ARG_index, ARG_r, ARG_g, ARG_b, ARG_w };
     static const mp_arg_t allowed_args[] = {
         { MP_QSTR_, MP_ARG_REQUIRED | MP_ARG_OBJ },
         { MP_QSTR_index, MP_ARG_REQUIRED | MP_ARG_INT },
         { MP_QSTR_r, MP_ARG_REQUIRED | MP_ARG_INT },
         { MP_QSTR_g, MP_ARG_REQUIRED | MP_ARG_INT },
-        { MP_QSTR_b, MP_ARG_REQUIRED | MP_ARG_INT }
+        { MP_QSTR_b, MP_ARG_REQUIRED | MP_ARG_INT },
+        { MP_QSTR_w, MP_ARG_INT, {.u_int = 0} }
     };
 
     // Parse args.
@@ -150,21 +152,24 @@ mp_obj_t PlasmaWS2812_set_rgb(size_t n_args, const mp_obj_t *pos_args, mp_map_t 
     int r = args[ARG_r].u_int;
     int g = args[ARG_g].u_int;
     int b = args[ARG_b].u_int;
+    int w = args[ARG_w].u_int;
 
     _PlasmaWS2812_obj_t *self = MP_OBJ_TO_PTR2(args[ARG_self].u_obj, _PlasmaWS2812_obj_t);
-    self->ws2812->set_rgb(index, r, g, b);
+
+    self->ws2812->set_rgb(index, r, g, b, w);
 
     return mp_const_none;
 }
 
 mp_obj_t PlasmaWS2812_set_hsv(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
-    enum { ARG_self, ARG_index, ARG_h, ARG_s, ARG_v };
+    enum { ARG_self, ARG_index, ARG_h, ARG_s, ARG_v, ARG_w };
     static const mp_arg_t allowed_args[] = {
         { MP_QSTR_, MP_ARG_REQUIRED | MP_ARG_OBJ },
         { MP_QSTR_index, MP_ARG_REQUIRED | MP_ARG_INT },
         { MP_QSTR_hue, MP_ARG_REQUIRED | MP_ARG_OBJ },
         { MP_QSTR_sat, MP_ARG_OBJ, {.u_rom_obj = MP_ROM_PTR(&const_float_1)} },
-        { MP_QSTR_val, MP_ARG_OBJ, {.u_rom_obj = MP_ROM_PTR(&const_float_1)} }
+        { MP_QSTR_val, MP_ARG_OBJ, {.u_rom_obj = MP_ROM_PTR(&const_float_1)} },
+        { MP_QSTR_w, MP_ARG_INT, {.u_int = 0} }
     };
 
     // Parse args.
@@ -175,12 +180,23 @@ mp_obj_t PlasmaWS2812_set_hsv(size_t n_args, const mp_obj_t *pos_args, mp_map_t 
     float h = mp_obj_get_float(args[ARG_h].u_obj);
     float s = mp_obj_get_float(args[ARG_s].u_obj);
     float v = mp_obj_get_float(args[ARG_v].u_obj);
+    int w = args[ARG_w].u_int;
 
     _PlasmaWS2812_obj_t *self = MP_OBJ_TO_PTR2(args[ARG_self].u_obj, _PlasmaWS2812_obj_t);
-    self->ws2812->set_hsv(index, h, s, v);
+
+    self->ws2812->set_hsv(index, h, s, v, w);
 
     return mp_const_none;
 }
+
+const int get_orders[6][4] = {                //  r  g  b  w
+    [static_cast<int>(WS2812::COLOR_ORDER::RGB)]={0, 1, 2, 3},
+    [static_cast<int>(WS2812::COLOR_ORDER::RBG)]={0, 2, 1, 3},
+    [static_cast<int>(WS2812::COLOR_ORDER::GRB)]={1, 0, 2, 3},
+    [static_cast<int>(WS2812::COLOR_ORDER::GBR)]={1, 2, 0, 3},
+    [static_cast<int>(WS2812::COLOR_ORDER::BRG)]={2, 0, 1, 3},
+    [static_cast<int>(WS2812::COLOR_ORDER::BGR)]={2, 1, 0, 3},
+};
 
 mp_obj_t PlasmaWS2812_get(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
     enum { ARG_self, ARG_index };
@@ -196,12 +212,13 @@ mp_obj_t PlasmaWS2812_get(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_
 
     _PlasmaWS2812_obj_t *self = MP_OBJ_TO_PTR2(args[ARG_self].u_obj, _PlasmaWS2812_obj_t);
     WS2812::RGB rgb = self->ws2812->get(index);
+    const int *get_order = get_orders[static_cast<int>(self->ws2812->color_order)];
 
     mp_obj_t tuple[4];
-    tuple[0] = mp_obj_new_int(rgb.r);
-    tuple[1] = mp_obj_new_float(rgb.g);
-    tuple[2] = mp_obj_new_float(rgb.b);
-    tuple[3] = mp_obj_new_float(rgb.w);
+    tuple[get_order[0]] = mp_obj_new_int(rgb.r);
+    tuple[get_order[1]] = mp_obj_new_int(rgb.g);
+    tuple[get_order[2]] = mp_obj_new_int(rgb.b);
+    tuple[get_order[3]] = mp_obj_new_int(rgb.w);
     return mp_obj_new_tuple(4, tuple);
 }
 
@@ -230,7 +247,7 @@ void PlasmaAPA102_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind
 /***** Destructor ******/
 mp_obj_t PlasmaAPA102___del__(mp_obj_t self_in) {
     _PlasmaAPA102_obj_t *self = MP_OBJ_TO_PTR2(self_in, _PlasmaAPA102_obj_t);
-    delete self->apa102;
+    m_del_class(APA102, self->apa102);
     return mp_const_none;
 }
 
@@ -290,7 +307,7 @@ mp_obj_t PlasmaAPA102_make_new(const mp_obj_type_t *type, size_t n_args, size_t 
     self->base.type = &PlasmaAPA102_type;
     self->buf = buffer;
 
-    self->apa102 = new APA102(num_leds, pio, sm, dat, clk, freq, buffer);
+    self->apa102 = m_new_class(APA102, num_leds, pio, sm, dat, clk, freq, buffer);
 
     return MP_OBJ_FROM_PTR(self);
 }
@@ -298,6 +315,12 @@ mp_obj_t PlasmaAPA102_make_new(const mp_obj_type_t *type, size_t n_args, size_t 
 mp_obj_t PlasmaAPA102_clear(mp_obj_t self_in) {
     _PlasmaAPA102_obj_t *self = MP_OBJ_TO_PTR2(self_in, _PlasmaAPA102_obj_t);
     self->apa102->clear();
+    return mp_const_none;
+}
+
+mp_obj_t PlasmaAPA102_update(mp_obj_t self_in) {
+    _PlasmaAPA102_obj_t *self = MP_OBJ_TO_PTR2(self_in, _PlasmaAPA102_obj_t);
+    self->apa102->update(true);
     return mp_const_none;
 }
 
@@ -404,9 +427,9 @@ mp_obj_t PlasmaAPA102_get(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_
 
     mp_obj_t tuple[4];
     tuple[0] = mp_obj_new_int(rgb.r);
-    tuple[1] = mp_obj_new_float(rgb.g);
-    tuple[2] = mp_obj_new_float(rgb.b);
-    tuple[3] = mp_obj_new_float(rgb.sof);
+    tuple[1] = mp_obj_new_int(rgb.g);
+    tuple[2] = mp_obj_new_int(rgb.b);
+    tuple[3] = mp_obj_new_int(rgb.sof);
     return mp_obj_new_tuple(4, tuple);
 }
 
